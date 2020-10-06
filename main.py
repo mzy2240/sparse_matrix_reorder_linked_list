@@ -2,6 +2,9 @@ import numpy as np
 from typing import Union
 from itertools import combinations
 from copy import deepcopy
+import networkx as nx
+import matplotlib.pyplot as plt
+from scipy import stats
 
 
 class Node:
@@ -288,6 +291,13 @@ def generate_sparse_matrix_from_raw(raw_matrix, ignore_zero: bool = True,
     return row_head, row_diag, row_sparse_matrix
 
 
+def get_diagonal_vector(mat):
+    row_diag = []
+    for i, row in enumerate(mat):
+        row_diag.append(row.get_node_by_col(i))
+    return row_diag
+
+
 class SparseMatrix(list):
 
     def __repr__(self):
@@ -408,12 +418,42 @@ def factorization_path(row_diag, arow):
     return path
 
 
-def reorder_matrix(matrix, method='tinney2'):
-    n_dim = len(matrix)
+def generate_factorization_graph(mat):
+    dia = get_diagonal_vector(mat)
+    processed = []
+    graph = []
+    for i, _ in enumerate(mat):
+        if i not in processed:
+            path = factorization_path(dia, i)
+            processed = list(set(processed + path))
+            graph.append(path)
+    return graph
+
+
+def get_factorization_stats(graph):
+    len_array = []
+    for path in graph:
+        len_array.append(len(path))
+    return stats.describe(len_array)
+
+
+def factorization_to_graph(graph, network=False):
+    edgelist = []
+    for path in graph:
+        edgelist = list(set(edgelist + list(zip(path[::1], path[1::1]))))
+    if network:
+        g = nx.Graph(edgelist)
+        return g
+    else:
+        return edgelist
+
+
+def reorder_matrix(mat, method='tinney2'):
+    n_dim = len(mat)
     chosen_nodes = [False] * n_dim
     bswr = [False] * n_dim
     row_perm = [0] * n_dim
-    sorted_matrix = deepcopy(matrix)
+    sorted_matrix = deepcopy(mat)
     num_fills = 0
 
     for i in range(0, n_dim):
@@ -434,11 +474,11 @@ def reorder_matrix(matrix, method='tinney2'):
             for pair in pairs:
                 index_1 = pair[0].col
                 index_2 = pair[1].col
-                if matrix[index_1].connected_to_node(index_2):
+                if mat[index_1].connected_to_node(index_2):
                     continue
                 else:
-                    matrix[index_1].insert_fill_at_col(index_2)
-                    matrix[index_2].insert_fill_at_col(index_1)
+                    mat[index_1].insert_fill_at_col(index_2)
+                    mat[index_2].insert_fill_at_col(index_1)
                     index = sorted_index.index(index_1)
                     sorted_matrix[index].insert_fill_at_col(index_2)
                     index = sorted_index.index(index_2)
@@ -449,7 +489,7 @@ def reorder_matrix(matrix, method='tinney2'):
             index = sorted_index.index(node.col)
             sorted_matrix[index].delete_element_by_col(k)
         sorted_matrix.pop(0)
-    return row_perm, num_fills, matrix
+    return row_perm, num_fills, mat
 
 
 if __name__ == "__main__":
@@ -460,7 +500,7 @@ if __name__ == "__main__":
     c = np.array([[1,1,0,1,1], [1,1,1,0,0], [0,1,1,1,0], [1,0,1,1,1], [1,0,
                                                                        0,1,1]])
     spm = []
-    hp, dp, lil = generate_sparse_matrix_from_raw(b)
+    hp, dp, lil = generate_sparse_matrix_from_raw(c)
     permutation, num_fill, matrix = reorder_matrix(lil)
     print(permutation)
     print("--------------------")
@@ -469,5 +509,10 @@ if __name__ == "__main__":
     print(num_fill)
     print("--------------------")
     matrix.permutate(permutation)
-    print(matrix)
+    graph = generate_factorization_graph(matrix)
+    print(get_factorization_stats(graph))
+    g = factorization_to_graph(graph, True)
+    nx.draw(g, with_labels=True)
+    plt.show()
+
 
