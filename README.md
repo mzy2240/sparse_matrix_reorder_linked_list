@@ -1,1 +1,1 @@
-"# sparse_matrix_reorder_linked_list" 
+A python implementation of linked list that can be utilized for sparse matrix reordering. The benefit of this linked list format sparse matrix is, compared to the normal full matrix, it takes much less memory which can be very critical for large matrix. This is mainly for educational purpose, for production please consider to use scipy lil_matrix or cllist.
